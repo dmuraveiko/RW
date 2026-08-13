@@ -1,0 +1,11 @@
+.DS_Store
+.env
+/AGENTS.md
+/wiki/
+.idea/
+.vscode/
+bin/
+coverage.out
+dist/
+tmp/
+*.log

@@ -1,0 +1,151 @@
+name: realwallet
+
+x-service-environment: &service-environment
+  RW_ENVIRONMENT: local
+  RW_NATS_URLS: nats://nats:4222
+  RW_USDT_NETWORK: fixture-net
+  RW_DATA_KEYRING_FILE: /run/realwallet/data-keyring.json
+  RW_FINGERPRINT_KEY_FILE: /run/realwallet/fingerprint.key
+  RW_TRUSTED_KEYS_FILE: /run/realwallet/trusted-keys.json
+
+x-service-secrets: &service-secrets
+  - ./secrets/data-keyring.json:/run/realwallet/data-keyring.json:ro
+  - ./secrets/fingerprint.key:/run/realwallet/fingerprint.key:ro
+  - ./secrets/trusted-keys.json:/run/realwallet/trusted-keys.json:ro
+
+services:
+  bot-db:
+    image: postgres:18.4-alpine
+    environment:
+      POSTGRES_DB: rw_bot
+      POSTGRES_USER: rw_bot
+      POSTGRES_PASSWORD: local-bot-password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rw_bot -d rw_bot"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    ports:
+      - "5541:5432"
+    volumes:
+      - bot-db:/var/lib/postgresql
+
+  sessions-db:
+    image: postgres:18.4-alpine
+    environment:
+      POSTGRES_DB: rw_sessions
+      POSTGRES_USER: rw_sessions
+      POSTGRES_PASSWORD: local-sessions-password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rw_sessions -d rw_sessions"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    ports:
+      - "5542:5432"
+    volumes:
+      - sessions-db:/var/lib/postgresql
+
+  nats:
+    image: nats:2.14.3-alpine
+    command: ["--name", "realwallet-local", "--http_port", "8222"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8222/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  bot-migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        TARGET: rw-migrate
+    command: ["-service", "bot"]
+    environment:
+      RW_ENVIRONMENT: local
+      RW_DATABASE_URL: postgres://rw_bot:local-bot-password@bot-db:5432/rw_bot?sslmode=disable
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      bot-db:
+        condition: service_healthy
+
+  sessions-migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        TARGET: rw-migrate
+    command: ["-service", "sessions"]
+    environment:
+      RW_ENVIRONMENT: local
+      RW_DATABASE_URL: postgres://rw_sessions:local-sessions-password@sessions-db:5432/rw_sessions?sslmode=disable
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      sessions-db:
+        condition: service_healthy
+
+  rw-bot:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        TARGET: rw-bot
+    environment:
+      <<: *service-environment
+      RW_DATABASE_URL: postgres://rw_bot:local-bot-password@bot-db:5432/rw_bot?sslmode=disable
+      RW_SIGNING_KEY_ID: bot-local-test
+      RW_SIGNING_PRIVATE_KEY_BASE64: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
+      RW_TELEGRAM_MODE: disabled
+      RW_USDT_SCALE: "6"
+      RW_ACTIVATION_AMOUNT_MIN_MINOR: "1000"
+      RW_ACTIVATION_AMOUNT_MAX_MINOR: "9999"
+    volumes: *service-secrets
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      bot-migrate:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+      - "9091:9090"
+
+  rw-active-sessions:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        TARGET: rw-active-sessions
+    environment:
+      <<: *service-environment
+      RW_DATABASE_URL: postgres://rw_sessions:local-sessions-password@sessions-db:5432/rw_sessions?sslmode=disable
+      RW_SIGNING_KEY_ID: sessions-local-test
+      RW_SIGNING_PRIVATE_KEY_BASE64: ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=
+    volumes: *service-secrets
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      sessions-migrate:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
+    ports:
+      - "8082:8080"
+      - "9092:9090"
+
+volumes:
+  bot-db:
+  sessions-db:

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realwallet.local/contracts/payloads-v1.schema.json",
+  "title": "RealWallet NATS payload definitions v1",
+  "$defs": {
+    "operation_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "base": {
+      "type": "object",
+      "properties": {"operation_id": {"$ref": "#/$defs/operation_id"}},
+      "required": ["operation_id"]
+    },
+    "invite_create": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["balance_id"], "properties": {"balance_id": {"type": "string", "minLength": 1, "maxLength": 256}, "requested_ttl_seconds": {"type": "integer", "minimum": 300, "maximum": 604800}}}]
+    },
+    "invite_created": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["invite", "bot_deep_link", "expires_at"], "properties": {"invite": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"}, "bot_deep_link": {"type": "string", "format": "uri"}, "expires_at": {"type": "string", "format": "date-time"}}}]
+    },
+    "activation_reserve": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["balance_id", "session_id", "sender_wallet", "verification_amount", "asset", "network"]}]
+    },
+    "activation_reserved": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["external_reservation_id", "receiver_wallet", "amount", "valid_from", "expires_at"]}]
+    },
+    "payment_confirmed": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["external_reservation_id", "transaction_id", "sender_wallet", "receiver_wallet", "amount", "observed_at"]}]
+    },
+    "sessions_activation_verify": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["session_id", "balance_id", "telegram_user_id", "telegram_chat_id", "sender_wallet", "transaction_id", "external_reservation_id"]}]
+    },
+    "topup_activation_verify": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["transaction_id", "external_reservation_id", "sender_wallet", "receiver_wallet", "amount", "network"]}]
+    },
+    "retryable_rejection": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["code", "retryable"], "properties": {"code": {"type": "string"}, "retryable": {"type": "boolean"}, "retry_after": {"type": "string", "format": "date-time"}}}]
+    },
+    "session_activated": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["session_id", "balance_id", "status", "authority_version", "activated_at"], "properties": {"status": {"const": "ACTIVE"}}}]
+    },
+    "session_list": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["requester_session_id"], "properties": {"cursor": {"type": "string"}, "page_size": {"type": "integer", "minimum": 1, "maximum": 100}}}]
+    },
+    "session_listed": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["sessions"], "properties": {"sessions": {"type": "array"}, "next_cursor": {"type": "string"}}}]
+    },
+    "session_revoke": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["requester_session_id", "target_session_id"]}]
+    },
+    "session_revoked": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["target_session_id", "status", "authority_version", "revoked_at"], "properties": {"status": {"const": "REVOKED"}}}]
+    },
+    "snapshot_request": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "properties": {"cursor": {"type": "string"}, "page_size": {"type": "integer", "minimum": 1, "maximum": 100}}}]
+    },
+    "snapshot_page": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["items", "next_cursor"], "properties": {"items": {"type": "array"}, "next_cursor": {"type": "string"}}}]
+    },
+    "snapshot_completed": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["snapshot_started_at", "total_items"]}]
+    },
+    "telegram_update_received": {
+      "type": "object", "required": ["bot_id", "update_id", "received_at", "update_json_base64"]
+    },
+    "telegram_call_execute": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["bot_id", "method", "request_json_base64", "deadline"]}]
+    },
+    "telegram_call_completed": {
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["method", "telegram_response_json_base64", "completed_at"]}]
+    },
+    "diagnostic_incident": {
+      "type": "object", "required": ["incident_id", "service", "instance", "environment", "category", "severity", "code", "summary", "first_seen_at", "last_seen_at", "occurrences", "retryable"]
+    }
+  }
+}

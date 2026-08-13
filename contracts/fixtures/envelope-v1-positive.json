@@ -1,0 +1,22 @@
+{
+  "name": "invite-create-positive-v1",
+  "fixture_only": true,
+  "private_key_seed_base64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "public_key_base64": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+  "raw_payload": "{\"operation_id\":\"018f7f34-7abc-7def-8abc-0123456789ab\",\"balance_id\":\"balance-123\"}",
+  "signing_input_base64": "UlctTkFUUy1TSUdORUQtVjEAAAAAAAAAATEAAAAAAAAAJDAxOGY3ZjM0LTdhYmMtN2RlZi04YWJjLTAxMjM0NTY3ODlhYgAAAAAAAAAXcncuYm90Lmludml0ZS5jcmVhdGUudjEAAAAAAAAAF3J3LmJvdC52MS5pbnZpdGUuY3JlYXRlAAAAAAAAAA5pc3N1ZXItZml4dHVyZQAAAAAAAAANaXNzdWVyLXRlc3QtMQAAAAAAAAAbMjAyNi0wOC0xMFQxMjowMDowMC4xMjM0NTZaAAAAAAAAABQyMDI2LTA4LTEwVDEyOjA1OjAwWgAAAAAAAAAkMDE4ZjdmMzQtN2FiYy03ZGVmLThhYmMtMTEyMzQ1Njc4OWFiAAAAAAAAAAAAAAAAAAAAEGFwcGxpY2F0aW9uL2pzb24AAAAAAAAAUnsib3BlcmF0aW9uX2lkIjoiMDE4ZjdmMzQtN2FiYy03ZGVmLThhYmMtMDEyMzQ1Njc4OWFiIiwiYmFsYW5jZV9pZCI6ImJhbGFuY2UtMTIzIn0=",
+  "envelope": {
+    "envelope_version": 1,
+    "message_id": "018f7f34-7abc-7def-8abc-0123456789ab",
+    "message_type": "rw.bot.invite.create.v1",
+    "subject": "rw.bot.v1.invite.create",
+    "producer": "issuer-fixture",
+    "key_id": "issuer-test-1",
+    "occurred_at": "2026-08-10T12:00:00.123456Z",
+    "expires_at": "2026-08-10T12:05:00Z",
+    "correlation_id": "018f7f34-7abc-7def-8abc-1123456789ab",
+    "content_type": "application/json",
+    "payload_base64": "eyJvcGVyYXRpb25faWQiOiIwMThmN2YzNC03YWJjLTdkZWYtOGFiYy0wMTIzNDU2Nzg5YWIiLCJiYWxhbmNlX2lkIjoiYmFsYW5jZS0xMjMifQ==",
+    "signature_base64": "J9V88tqQYtuNLspcSpL3y9kXiJUhrG9BelYilDBmf2abXigGZXkmzUO6jmiItHcHI5/Xn0p+fUUnYCiT9WB/Ag=="
+  }
+}

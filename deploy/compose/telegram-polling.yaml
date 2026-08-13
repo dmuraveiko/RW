@@ -1,0 +1,7 @@
+services:
+  rw-bot:
+    environment:
+      RW_TELEGRAM_MODE: direct_polling
+      RW_TELEGRAM_TOKEN: ${RW_TELEGRAM_TOKEN:?set RW_TELEGRAM_TOKEN received from BotFather}
+      RW_TELEGRAM_BOT_ID: ${RW_TELEGRAM_BOT_ID:-0}
+      RW_TELEGRAM_BOT_USERNAME: ${RW_TELEGRAM_BOT_USERNAME:-}

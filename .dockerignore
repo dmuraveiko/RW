@@ -1,0 +1,12 @@
+.git
+.github
+README.md
+contracts
+deploy/compose
+docs
+raw
+wiki
+coverage.out
+bin
+dist
+tmp

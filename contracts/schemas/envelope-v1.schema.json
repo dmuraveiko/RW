@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realwallet.local/contracts/envelope-v1.schema.json",
+  "title": "RealWallet signed NATS envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "envelope_version", "message_id", "message_type", "subject", "producer",
+    "key_id", "occurred_at", "expires_at", "correlation_id", "content_type",
+    "payload_base64", "signature_base64"
+  ],
+  "properties": {
+    "envelope_version": {"const": 1},
+    "message_id": {"$ref": "#/$defs/uuid_v7"},
+    "message_type": {"type": "string", "minLength": 1, "maxLength": 128},
+    "subject": {"type": "string", "pattern": "^rw\\.[a-z0-9_-]+\\.v1\\.[a-z0-9_-]+\\.[a-z0-9_-]+$", "maxLength": 128},
+    "producer": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"},
+    "key_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "correlation_id": {"$ref": "#/$defs/uuid_v7"},
+    "causation_id": {"$ref": "#/$defs/uuid_v7"},
+    "content_type": {"const": "application/json"},
+    "payload_base64": {"type": "string", "contentEncoding": "base64"},
+    "signature_base64": {"type": "string", "contentEncoding": "base64"}
+  },
+  "$defs": {
+    "uuid_v7": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    }
+  }
+}

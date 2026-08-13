@@ -1,0 +1,44 @@
+asyncapi: 3.0.0
+info:
+  title: RealWallet CAB0 asynchronous API
+  version: 1.0.0
+  description: Core NATS contracts. Request/reply and JetStream are not used.
+defaultContentType: application/json
+servers:
+  local:
+    host: localhost:4222
+    protocol: nats
+channels:
+  inviteCreate: {address: rw.bot.v1.invite.create, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  inviteCreated: {address: rw.bot.v1.invite.created, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  activationReserve: {address: rw.topup.v1.activation.reserve, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  activationReserved: {address: rw.topup.v1.activation.reserved, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  activationReserveRejected: {address: rw.topup.v1.activation.reserve_rejected, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  paymentConfirmed: {address: rw.topup.v1.activation.payment_confirmed, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  sessionActivationVerify: {address: rw.sessions.v1.activation.verify, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  topupActivationVerify: {address: rw.topup.v1.activation.verify, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  topupActivationVerified: {address: rw.topup.v1.activation.verified, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  topupVerificationRejected: {address: rw.topup.v1.activation.verification_rejected, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  sessionActivated: {address: rw.sessions.v1.activation.activated, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  sessionActivationRejected: {address: rw.sessions.v1.activation.rejected, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  sessionList: {address: rw.sessions.v1.session.list, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  sessionListed: {address: rw.sessions.v1.session.listed, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  sessionRevoke: {address: rw.sessions.v1.session.revoke, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  sessionRevoked: {address: rw.sessions.v1.session.revoked, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  sessionRevokeRejected: {address: rw.sessions.v1.session.revoke_rejected, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  snapshotRequest: {address: rw.sessions.v1.snapshot.request, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  snapshotPage: {address: rw.sessions.v1.snapshot.page, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  snapshotCompleted: {address: rw.sessions.v1.snapshot.completed, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  telegramUpdateReceived: {address: rw.natsproxy.v1.telegram.update_received, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  telegramCallExecute: {address: rw.natsproxy.v1.telegram.call_execute, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  telegramCallCompleted: {address: rw.natsproxy.v1.telegram.call_completed, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  telegramCallRejected: {address: rw.natsproxy.v1.telegram.call_rejected, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+  incidentReport: {address: rw.diagnostics.v1.incident.report, messages: {signedEnvelope: {$ref: '#/components/messages/signedEnvelope'}}}
+components:
+  messages:
+    signedEnvelope:
+      name: signedEnvelopeV1
+      title: Ed25519-signed envelope
+      payload:
+        $ref: ../schemas/envelope-v1.schema.json
+      x-payload-definitions: ../schemas/payloads-v1.schema.json

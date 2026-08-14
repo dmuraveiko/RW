@@ -104,6 +104,8 @@ services:
       RW_SIGNING_KEY_ID: bot-local-test
       RW_SIGNING_PRIVATE_KEY_BASE64: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
       RW_TELEGRAM_MODE: disabled
+      RW_TELEGRAM_BOT_ID: "100001"
+      RW_TELEGRAM_BOT_USERNAME: realwallet_local_bot
       RW_USDT_SCALE: "6"
       RW_ACTIVATION_AMOUNT_MIN_MINOR: "1000"
       RW_ACTIVATION_AMOUNT_MAX_MINOR: "9999"
@@ -145,6 +147,97 @@ services:
     ports:
       - "8082:8080"
       - "9092:9090"
+
+  rw-demo-active-sessions:
+    profiles: [tools]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        TARGET: rw-demo-active-sessions
+    environment:
+      RW_NATS_URLS: nats://nats:4222
+      RW_TRUSTED_KEYS_FILE: /run/realwallet/trusted-keys.json
+      RW_BOT_SIGNING_PRIVATE_KEY_BASE64: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
+      RW_TOPUP_SIGNING_PRIVATE_KEY_BASE64: gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp8=
+    volumes:
+      - ./secrets/trusted-keys.json:/run/realwallet/trusted-keys.json:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      rw-active-sessions:
+        condition: service_started
+
+  rw-create-invite:
+    profiles: [tools]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        TARGET: rw-create-invite
+    environment:
+      RW_NATS_URLS: nats://nats:4222
+      RW_TRUSTED_KEYS_FILE: /run/realwallet/trusted-keys.json
+      RW_ISSUER_SIGNING_PRIVATE_KEY_BASE64: QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8=
+      RW_BALANCE_ID: ${RW_BALANCE_ID:-local-demo-balance}
+    volumes:
+      - ./secrets/trusted-keys.json:/run/realwallet/trusted-keys.json:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      rw-bot:
+        condition: service_started
+
+  rw-fake-topup:
+    profiles: [telegram]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        TARGET: rw-fake-topup
+    environment:
+      RW_NATS_URLS: nats://nats:4222
+      RW_TRUSTED_KEYS_FILE: /run/realwallet/trusted-keys.json
+      RW_TOPUP_SIGNING_PRIVATE_KEY_BASE64: gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp8=
+    volumes:
+      - ./secrets/trusted-keys.json:/run/realwallet/trusted-keys.json:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      nats:
+        condition: service_healthy
+
+  rw-demo-telegram-flow:
+    profiles: [tools]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        TARGET: rw-demo-telegram-flow
+    environment:
+      RW_DATABASE_URL: postgres://rw_bot:local-bot-password@bot-db:5432/rw_bot?sslmode=disable
+      RW_NATS_URLS: nats://nats:4222
+      RW_TRUSTED_KEYS_FILE: /run/realwallet/trusted-keys.json
+      RW_DATA_KEYRING_FILE: /run/realwallet/data-keyring.json
+      RW_FINGERPRINT_KEY_FILE: /run/realwallet/fingerprint.key
+      RW_BOT_SIGNING_PRIVATE_KEY_BASE64: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
+      RW_ISSUER_SIGNING_PRIVATE_KEY_BASE64: QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8=
+    volumes: *service-secrets
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      rw-bot:
+        condition: service_started
+      rw-active-sessions:
+        condition: service_started
 
 volumes:
   bot-db:

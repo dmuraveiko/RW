@@ -1,13 +1,13 @@
 # Пошаговый план разработки
 
-План разбит на вертикали, каждая заканчивается демонстрируемым результатом. Технические P0–P2 решения закрыты в [technical-decisions.md](technical-decisions.md). Этап 1 завершён 13 августа 2026 года; следующая реализация начинается с этапа 2. Календарные оценки зависят от состава команды и не меняют технический порядок.
+План разбит на вертикали, каждая заканчивается демонстрируемым результатом. Технические P0–P2 решения закрыты в [technical-decisions.md](technical-decisions.md). Этап 1 завершён 13 августа 2026 года; этапы 2–3 находятся в работе. Календарные оценки зависят от состава команды и не меняют технический порядок.
 
 ## Три крупные итерации
 
 | Итерация | Этапы | Демонстрируемый результат | Статус |
 | --- | --- | --- | --- |
 | I. Платформенная основа | 1 | Два запускаемых сервиса, инфраструктура, криптография и machine-readable contracts | Завершена |
-| II. Надёжное прикладное ядро | 2–5 | Inbox/outbox и полный activation/list/revoke flow без реальной Telegram network | Следующая |
+| II. Надёжное прикладное ядро | 2–5 | Inbox/outbox и полный activation/list/revoke flow без реальной Telegram network | В работе: activation verification доступна для demo/integration |
 | III. Транспорты и production readiness | 6–8 | Telegram modes, natsproxy, diagnostics, hardening и production handoff | Начат только local polling demo |
 
 ## Этап 0. Архитектурное согласование — завершён
@@ -45,7 +45,7 @@
 
 Фактический состав, способы запуска и выполненные проверки приведены в [отчёте первой итерации](iteration-1-result.md).
 
-## Этап 2. Надёжный messaging substrate
+## Этап 2. Надёжный messaging substrate — основной срез реализован
 
 ### Работы
 
@@ -55,13 +55,15 @@
 4. Повтор сохранённого result для duplicate command.
 5. Contract harness и fake peer.
 
+Реализованы общие inbox/outbox primitives, encrypted exact envelopes, queue consumers, bounded publisher, retries, duplicate-result replay и reconciliation top-up verification. Полная crash/failure matrix, retention workers и эксплуатационные метрики остаются до закрытия этапа.
+
 ### Критерии приёмки
 
 - Crash matrix из testing strategy проходит.
 - Offline consumer после восстановления получает повтор command и возвращает один result.
 - Duplicate message не дублирует side effect.
 
-## Этап 3. Вертикальный срез active-sessions
+## Этап 3. Вертикальный срез active-sessions — activation verification реализована
 
 ### Работы
 
@@ -72,6 +74,8 @@
 5. List/revoke с authorization и audit.
 6. Component tests с fake top-up.
 
+Реализованы пункты 1–4 и activation component demo с fake top-up. `session.list`, `session.revoke`, полная concurrency/failure matrix и production top-up conformance остаются следующей частью этапа.
+
 ### Критерии приёмки
 
 - Первая активация создаёт identity+session атомарно.
@@ -79,7 +83,7 @@
 - Другой wallet получает deterministic rejection.
 - Concurrent/duplicate/late events сохраняют invariants.
 
-## Этап 4. Invite и неактивные сессии бота
+## Этап 4. Invite и неактивные сессии бота — основной срез реализован
 
 ### Работы
 
@@ -89,13 +93,15 @@
 4. Atomic consumption, TTL/cleanup и rate limits.
 5. Telegram-neutral presentation commands/events.
 
+Реализованы signed create/result, encrypted single-use invite, atomic binding, ручной/deep-link ввод и отдельная inactive-session table. Распределённые rate limits и retention worker остаются hardening.
+
 ### Критерии приёмки
 
 - Invite создаётся идемпотентно и однократно потребляется.
 - Конкурентное использование даёт одного победителя.
 - Inactive session не имеет active commands.
 
-## Этап 5. Оркестрация активации ботом
+## Этап 5. Оркестрация активации ботом — основной flow реализован
 
 ### Работы
 
@@ -106,13 +112,15 @@
 5. Projection updates и безопасные user notifications.
 6. Reconciliation pending/expired/late operations.
 
+Реализованы persistent state machine, reserve/payment/verify, active projection, expiry reconciliation, reference fake top-up и end-to-end demo. Durable Telegram delivery queue и расширенная crash matrix остаются hardening.
+
 ### Критерии приёмки
 
 - Полная активация работает end-to-end без Telegram network.
 - Ни один top-up claim сам по себе не активирует session.
 - Restart на каждом переходе не ломает flow.
 
-## Этап 6. Прямые Telegram-транспорты — начат демонстрационный срез
+## Этап 6. Прямые Telegram-транспорты — polling activation flow реализован
 
 ### Работы
 
@@ -123,7 +131,7 @@
 5. Список/revoke UX и защита active-only functionality.
 6. Durable `telegram_deliveries`, unsafe outcome handling и русский presentation catalog.
 
-Минимальный срез `direct_polling` уже доступен для ручной демонстрации: `getMe`, безопасное отключение webhook, long polling, durable update dedup и команды `/start`, `/help`, `/status`. Полный UX и domain orchestration остаются в этапах 4–6.
+Срез `direct_polling` доступен для ручной демонстрации: `getMe`, безопасное отключение webhook, long polling, durable update dedup, invite и полный activation flow. Webhook, callbacks, list/revoke UX и delivery queue остаются следующими частями этапа.
 
 ### Критерии приёмки
 

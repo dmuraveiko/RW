@@ -71,7 +71,7 @@ func TestPollerProcessesUpdateAndStops(t *testing.T) {
 	store := &pollerStore{seen: make(map[int64]string), finished: make(chan struct{}, 1)}
 	handler := app.NewMessageHandler(client, store, pollerPresenter{})
 	ready := make(chan struct{}, 1)
-	poller := NewPoller(client, handler, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second, 123456789, "rw_test_bot", func() { ready <- struct{}{} })
+	poller := NewPoller(client, handler, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second, 123456789, "rw_test_bot", func(User) { ready <- struct{}{} })
 	ctx, cancel := context.WithCancel(context.Background())
 	result := make(chan error, 1)
 	go func() { result <- poller.Run(ctx) }()

@@ -9,15 +9,15 @@ func (Russian) Text(reply app.Reply) string {
 	case app.ReplyNone:
 		return ""
 	case app.ReplyStart:
-		return "Бот RealWallet на связи.\n\nСейчас доступен демонстрационный режим. Привязка по инвайту и активация появятся в следующей версии.\n\nДоступные команды: /help и /status."
+		return "Бот RealWallet на связи. Для начала работы отправьте действующий инвайт."
 	case app.ReplyStartInvite:
-		return "Бот RealWallet на связи. Инвайт получен, но привязка и активация появятся в следующей версии.\n\nИспользуйте /status, чтобы проверить соединение."
+		return "Инвайт получен. Выполняется привязка сессии."
 	case app.ReplyHelp:
 		return "Доступные команды:\n/start — начать работу\n/status — проверить состояние бота\n/help — показать эту справку"
 	case app.ReplyStatus:
-		return "Бот работает и подключён к Telegram API. Бизнес-сценарии активации пока не включены."
+		return "Бот работает и подключён к Telegram API."
 	case app.ReplyTextUnsupported:
-		return "Пока я понимаю только команды /start, /status и /help."
+		return "Используйте /start, /status или /help."
 	default:
 		return "Неизвестная команда. Используйте /help."
 	}

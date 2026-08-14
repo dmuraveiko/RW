@@ -1,0 +1,9 @@
+{
+  "operation_id": "0198a123-4567-7abc-8def-0123456789ab",
+  "external_reservation_id": "fixture-reservation-001",
+  "transaction_id": "fixture-transaction-001",
+  "sender_wallet": "0x1111111111111111111111111111111111111111",
+  "receiver_wallet": "0x9999999999999999999999999999999999999999",
+  "amount": "0.001001",
+  "observed_at": "2030-01-01T00:05:00Z"
+}

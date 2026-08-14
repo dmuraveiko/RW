@@ -21,13 +21,14 @@
 | `id` | uuid | нет | PK |
 | `operation_id` | uuid | нет | UNIQUE, идемпотентность create command |
 | `token_digest` | bytea | нет | UNIQUE, SHA-256 token |
+| `token_ciphertext` | bytea | нет | Raw token для идемпотентного result, AES-256-GCM |
 | `balance_id_ciphertext`, `balance_id_fingerprint` | bytea | нет | Encrypted opaque ID + indexed HMAC lookup |
-| `status` | text | нет | `ISSUED/CONSUMED/EXPIRED/REVOKED` |
+| `status` | text | нет | `ACTIVE/CONSUMED/EXPIRED` |
 | `expires_at` | timestamptz | нет | Default 24h, allowed 5m–7d |
-| `consumed_by_session_id` | uuid | да | Deferrable FK на inactive session |
+| `consumed_by_session_id` | uuid | да | FK на inactive session |
 | `consumed_at` | timestamptz | да | Set atomically |
-| `created_at`, `updated_at` | timestamptz | нет | Audit |
-| `version` | bigint | нет | CAS |
+| `command_message_id`, `result_message_id` | uuid | нет | Связь с durable inbox/outbox |
+| `created_at` | timestamptz | нет | Audit |
 
 Indexes: unique digest, unique operation, cleanup `(status, expires_at)`.
 
@@ -36,13 +37,11 @@ Indexes: unique digest, unique operation, cleanup `(status, expires_at)`.
 | Колонка | Тип | Null | Ограничение/назначение |
 | --- | --- | --- | --- |
 | `id` | uuid | нет | PK, stable session ID |
-| `invite_id` | uuid | нет | FK invites |
 | `bot_id` | bigint | нет | Telegram bot identity |
 | `balance_id_ciphertext`, `balance_id_fingerprint` | bytea | нет | Immutable encrypted binding + lookup |
 | `telegram_user_id` | bigint | нет | Telegram identity |
 | `telegram_chat_id` | bigint | нет | Private chat identity |
-| `state` | text | нет | State machine value |
-| `sender_wallet_ciphertext`, `sender_wallet_fingerprint` | bytea | да | Encrypted canonical value + HMAC lookup |
+| `dialog_state` | text | нет | State machine value |
 | `current_attempt_id` | uuid | да | FK activation attempts |
 | `created_at`, `updated_at`, `expires_at` | timestamptz | нет | Lifecycle |
 | `version` | bigint | нет | CAS |
@@ -54,16 +53,16 @@ Partial unique constraint: одна non-terminal binding на `(bot_id, telegram
 | Колонка | Тип | Null | Ограничение/назначение |
 | --- | --- | --- | --- |
 | `id` / `operation_id` | uuid | нет | PK / UNIQUE correlation |
-| `inactive_session_id` | uuid | нет | FK |
+| `session_id` | uuid | нет | Stable inactive/authority session ID |
 | `status` | text | нет | Reservation/payment/verification lifecycle |
 | `sender_wallet_ciphertext`, `sender_wallet_fingerprint` | bytea | нет | Submitted canonical encrypted value + lookup |
 | `network`, `asset` | text | нет | Required contract values; asset=`USDT` |
-| `verification_amount` | numeric | нет | Exact amount |
+| `verification_amount` | text | нет | Exact decimal amount без float |
 | `external_reservation_id` | text | да | Top-up identifier |
 | `receiver_wallet_ciphertext`, `receiver_wallet_fingerprint` | bytea | да | Encrypted offer result + lookup |
 | `offer_expires_at` | timestamptz | да | Late-event guard |
 | `transaction_id` | text | да | UNIQUE per network where appropriate |
-| `failure_code`, `retry_after` | text/timestamptz | да | User/recovery flow |
+| `failure_code` | text | да | User/recovery flow |
 | `created_at`, `updated_at`, `completed_at` | timestamptz | да | Audit |
 | `version` | bigint | нет | CAS |
 
@@ -77,9 +76,8 @@ Constraints/indexes: один non-terminal attempt на session; unique `(networ
 | `balance_id_fingerprint` | bytea | нет | Routing lookup only; raw value не нужен UI |
 | `bot_id` | bigint | нет | Telegram bot identity |
 | `telegram_user_id`, `telegram_chat_id` | bigint | нет | Local matching |
-| `status` | text | нет | `ACTIVE/REVOKED` |
 | `authority_version` | bigint | нет | Ignore stale events |
-| `activated_at`, `revoked_at`, `updated_at` | timestamptz | да | Projection metadata |
+| `activated_at`, `updated_at` | timestamptz | нет | Projection metadata |
 
 Bot всегда запрашивает active-sessions для авторитетных list/revoke; projection используется только как быстрый access gate и для UI routing.
 
@@ -178,35 +176,41 @@ Constraints/indexes: partial unique `(client_type, bot_id, telegram_user_id) WHE
 | `id`, `operation_id` | uuid | нет | PK / UNIQUE |
 | `session_id` | uuid | нет | Requested future active session |
 | `balance_id_ciphertext`, `balance_id_fingerprint` | bytea | нет | Encrypted claimed binding + lookup |
-| `claimed_sender_wallet_ciphertext`, `claimed_sender_wallet_fingerprint` | bytea | нет | Encrypted claim + lookup |
-| `network`, `transaction_id` | text | нет | Claim; pair UNIQUE after verified receipt |
+| `sender_wallet_ciphertext`, `sender_wallet_fingerprint` | bytea | нет | Encrypted expected sender + lookup |
+| `receiver_wallet_ciphertext`, `receiver_wallet_fingerprint` | bytea | нет | Encrypted expected receiver + lookup |
+| `bot_id`, `telegram_user_id`, `telegram_chat_id` | bigint | нет | Telegram identity и delivery address |
+| `display_label` | text | да | Optional sanitized label, max 128 chars |
+| `amount`, `network`, `transaction_id` | text | нет | Expected transaction facts |
 | `external_reservation_id` | text | нет | Top-up correlation |
+| `command_message_id`, `topup_command_message_id` | uuid | нет | Inbox/outbox correlation |
+| `offer_expires_at` | timestamptz | нет | Проверка позднего результата |
 | `status` | text | нет | Verification state |
-| `verified_facts_ciphertext`, `encryption_key_id` | bytea/text | да | Bounded auditable result encrypted at rest |
-| `failure_code`, `retry_after` | text/timestamptz | да | Результат/восстановление |
+| `failure_code` | text | да | Terminal reason |
 | `created_at`, `updated_at`, `completed_at` | timestamptz | да | Audit |
 | `version` | bigint | нет | CAS |
 
 ## Таблицы надёжности в обеих БД
 
-### `inbox_messages`
+### `message_inbox`
 
 | Колонка | Тип | Назначение |
 | --- | --- | --- |
 | `message_id` | uuid PK | Dedup key |
-| `message_type`, `producer`, `correlation_id` | text/uuid | Audit/routing |
-| `received_at`, `processed_at` | timestamptz | Lifecycle |
-| `status` | text | `PROCESSING/PROCESSED/REJECTED` |
+| `subject`, `producer` | text | Audit/routing |
+| `received_at`, `completed_at`, `expires_at` | timestamptz | Lifecycle/retention |
+| `status` | text | `PROCESSING/COMPLETED/REJECTED` |
 | `result_message_id` | uuid | Позволяет повторно опубликовать сохранённый result |
 | `payload_digest` | bytea | Detect same ID with different payload |
 
-### `outbox_messages`
+### `message_outbox`
 
 | Колонка | Тип | Назначение |
 | --- | --- | --- |
 | `message_id` | uuid PK | Same ID on retries |
-| `subject`, `envelope_ciphertext`, `encryption_key_id` | text/bytea/text | Exact signed envelope encrypted at rest |
-| `status` | text | `PENDING/PUBLISHED/CONFIRMED/DEAD` |
+| `subject`, `envelope` | text/bytea | Exact signed envelope encrypted at rest как serialized AES-GCM ciphertext |
+| `kind` | text | `COMMAND/RESULT/EVENT` определяет confirmation/retry policy |
+| `status` | text | `PENDING/PUBLISHING/PUBLISHED/CONFIRMED/DEAD` |
+| `lease_until` | timestamptz | Crash recovery для claimed publish |
 | `attempts`, `next_attempt_at` | int/timestamptz | Retry scheduler |
 | `published_at`, `confirmed_at` | timestamptz | Lifecycle |
 | `last_error_code` | text | Sanitized operational error |

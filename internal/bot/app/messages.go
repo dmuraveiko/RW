@@ -8,9 +8,12 @@ import (
 
 type IncomingMessage struct {
 	UpdateID      int64
+	BotID         int64
+	UserID        int64
 	ChatID        int64
 	ChatType      string
 	Text          string
+	DisplayLabel  string
 	PayloadDigest []byte
 }
 
@@ -39,15 +42,24 @@ type Presenter interface {
 	Text(reply Reply) string
 }
 
+type Conversation interface {
+	Handle(ctx context.Context, message IncomingMessage) (string, error)
+}
+
 type ProcessResult struct {
 	Duplicate      bool
 	DeliveryFailed bool
 }
 
 type MessageHandler struct {
-	messenger Messenger
-	updates   UpdateStore
-	presenter Presenter
+	messenger    Messenger
+	updates      UpdateStore
+	presenter    Presenter
+	conversation Conversation
+}
+
+func NewFlowMessageHandler(messenger Messenger, updates UpdateStore, presenter Presenter, conversation Conversation) *MessageHandler {
+	return &MessageHandler{messenger: messenger, updates: updates, presenter: presenter, conversation: conversation}
 }
 
 func NewMessageHandler(messenger Messenger, updates UpdateStore, presenter Presenter) *MessageHandler {
@@ -63,7 +75,15 @@ func (h *MessageHandler) Process(ctx context.Context, message IncomingMessage) (
 		return ProcessResult{Duplicate: true}, nil
 	}
 
-	response := h.presenter.Text(replyFor(message))
+	response := ""
+	if h.conversation != nil && message.ChatType == "private" {
+		response, err = h.conversation.Handle(ctx, message)
+		if err != nil {
+			return ProcessResult{}, fmt.Errorf("handle Telegram conversation: %w", err)
+		}
+	} else {
+		response = h.presenter.Text(replyFor(message))
+	}
 	outcome := "IGNORED"
 	deliveryFailed := false
 	if response != "" {

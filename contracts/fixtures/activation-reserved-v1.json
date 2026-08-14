@@ -1,0 +1,8 @@
+{
+  "operation_id": "0198a123-4567-7abc-8def-0123456789ab",
+  "external_reservation_id": "fixture-reservation-001",
+  "receiver_wallet": "0x9999999999999999999999999999999999999999",
+  "amount": "0.001001",
+  "valid_from": "2030-01-01T00:00:00Z",
+  "expires_at": "2030-01-01T00:10:00Z"
+}

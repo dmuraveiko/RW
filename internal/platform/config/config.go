@@ -36,6 +36,7 @@ type Config struct {
 	Shutdown    time.Duration
 	Database    Database
 	NATS        NATS
+	Messaging   Messaging
 	Security    Security
 	Bot         BotConfig
 	Sessions    SessionsConfig
@@ -61,6 +62,15 @@ type NATS struct {
 	ReconnectBuffer int
 	PendingMessages int
 	PendingBytes    int
+}
+
+type Messaging struct {
+	OutboxBatch       int
+	OutboxConcurrency int
+	RetryInitial      time.Duration
+	RetryMax          time.Duration
+	ReconcileInterval time.Duration
+	ReconcileBatch    int
 }
 
 type Security struct {
@@ -98,8 +108,11 @@ const (
 	MessageMaxBytes = 262144
 )
 
-func SchemaVersion(_ Service) int64 {
-	return 1
+func SchemaVersion(service Service) int64 {
+	if service == Bot {
+		return 3
+	}
+	return 2
 }
 
 var allowed = map[string]struct{}{
@@ -178,6 +191,9 @@ func Load(service Service) (Config, error) {
 	if cfg.NATS, err = loadNATS(environment); err != nil {
 		return Config{}, err
 	}
+	if cfg.Messaging, err = loadMessaging(); err != nil {
+		return Config{}, err
+	}
 	if cfg.Security, err = loadSecurity(environment); err != nil {
 		return Config{}, err
 	}
@@ -201,6 +217,36 @@ func Load(service Service) (Config, error) {
 	}
 	if err != nil {
 		return Config{}, err
+	}
+	return cfg, nil
+}
+
+func loadMessaging() (Messaging, error) {
+	var err error
+	cfg := Messaging{}
+	if cfg.OutboxBatch, err = integer("RW_OUTBOX_BATCH_SIZE", 100); err != nil {
+		return cfg, err
+	}
+	if cfg.OutboxConcurrency, err = integer("RW_OUTBOX_CONCURRENCY", 8); err != nil {
+		return cfg, err
+	}
+	if cfg.RetryInitial, err = duration("RW_OUTBOX_RETRY_INITIAL", 250*time.Millisecond); err != nil {
+		return cfg, err
+	}
+	if cfg.RetryMax, err = duration("RW_OUTBOX_RETRY_MAX", 30*time.Second); err != nil {
+		return cfg, err
+	}
+	if cfg.ReconcileInterval, err = duration("RW_RECONCILE_INTERVAL", 30*time.Second); err != nil {
+		return cfg, err
+	}
+	if cfg.ReconcileBatch, err = integer("RW_RECONCILE_BATCH_SIZE", 100); err != nil {
+		return cfg, err
+	}
+	if cfg.OutboxBatch < 1 || cfg.OutboxBatch > 1000 || cfg.OutboxConcurrency < 1 || cfg.OutboxConcurrency > 64 || cfg.ReconcileBatch < 1 || cfg.ReconcileBatch > 1000 {
+		return cfg, errors.New("messaging batch and concurrency values are outside allowed range")
+	}
+	if cfg.RetryInitial > cfg.RetryMax {
+		return cfg, errors.New("RW_OUTBOX_RETRY_INITIAL must not exceed RW_OUTBOX_RETRY_MAX")
 	}
 	return cfg, nil
 }

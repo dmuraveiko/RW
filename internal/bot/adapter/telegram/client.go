@@ -24,9 +24,11 @@ type Client struct {
 }
 
 type User struct {
-	ID       int64  `json:"id"`
-	IsBot    bool   `json:"is_bot"`
-	Username string `json:"username"`
+	ID        int64  `json:"id"`
+	IsBot     bool   `json:"is_bot"`
+	Username  string `json:"username"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
 }
 
 type Update struct {
@@ -39,6 +41,7 @@ type Message struct {
 	MessageID int64  `json:"message_id"`
 	Text      string `json:"text,omitempty"`
 	Chat      Chat   `json:"chat"`
+	From      User   `json:"from"`
 }
 
 type Chat struct {

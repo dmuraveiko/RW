@@ -1,4 +1,6 @@
 .git
+.env
+AGENTS.md
 .github
 README.md
 contracts

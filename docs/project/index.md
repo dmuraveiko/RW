@@ -1,8 +1,8 @@
 # Рабочая документация RealWallet CAB0
 
 Статус: `ТЕХНИЧЕСКАЯ СПЕЦИФИКАЦИЯ УТВЕРЖДЕНА`  
-Версия: `1.2`  
-Дата: `2026-08-13`
+Версия: `1.4`
+Дата: `2026-08-14`
 
 Этот пакет описывает подготовку к реализации только двух подсистем из `raw/rw_cab0.txt`: Telegram-бота и активных сессий. Подсистемы пополнения, blockchain-статусов, `natsproxy` и диагностики считаются внешними.
 
@@ -27,10 +27,14 @@
 17. [Результат первой итерации](iteration-1-result.md)
 18. [Демонстрационный Telegram-срез](telegram-demo.md)
 19. [Текущее состояние реализации](current-status.md)
+20. [ADR-010: полные факты проверки активации](adr/010-activation-verification-facts.md)
+21. [Интеграция с activation verification](integration-active-sessions.md)
+22. [Результат итерации II-A](iteration-2a-result.md)
+23. [Результат итерации II-B](iteration-2b-result.md)
 
 ## Статус реализации
 
-Этап 1 «Основа репозитория» завершён. Два сервиса запускаются локально с отдельными PostgreSQL, migration jobs и Core NATS; конфигурация, health/readiness, метрики, криптографические примитивы и signed envelope v1 покрыты автоматическими проверками. Дополнительно доступен минимальный Telegram direct-polling срез для ручной демонстрации. Следующий основной этап — надёжный inbox/outbox substrate.
+Этап 1 завершён. Реализованы демонстрируемые срезы этапов 2–6: PostgreSQL inbox/outbox, signed invite/reserve/activation messages, authoritative active-sessions activation, single-use invite, inactive binding и полный Telegram polling flow до статуса `ACTIVE`. Следующая прикладная вертикаль — list/revoke сессий.
 
 ## Статусы утверждений
 

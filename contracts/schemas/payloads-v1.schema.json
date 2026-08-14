@@ -4,6 +4,10 @@
   "title": "RealWallet NATS payload definitions v1",
   "$defs": {
     "operation_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "wallet": {"type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[!-~]+$"},
+    "network": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9._-]+$"},
+    "amount": {"type": "string", "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,18})?$", "maxLength": 64},
+    "external_id": {"type": "string", "minLength": 1, "maxLength": 256},
     "base": {
       "type": "object",
       "properties": {"operation_id": {"$ref": "#/$defs/operation_id"}},
@@ -16,25 +20,89 @@
       "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["invite", "bot_deep_link", "expires_at"], "properties": {"invite": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"}, "bot_deep_link": {"type": "string", "format": "uri"}, "expires_at": {"type": "string", "format": "date-time"}}}]
     },
     "activation_reserve": {
-      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["balance_id", "session_id", "sender_wallet", "verification_amount", "asset", "network"]}]
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["balance_id", "session_id", "sender_wallet", "verification_amount", "asset", "network"], "properties": {"balance_id": {"type": "string", "minLength": 1, "maxLength": 256}, "session_id": {"$ref": "#/$defs/operation_id"}, "sender_wallet": {"$ref": "#/$defs/wallet"}, "verification_amount": {"$ref": "#/$defs/amount"}, "asset": {"const": "USDT"}, "network": {"$ref": "#/$defs/network"}}}],
+      "unevaluatedProperties": false
     },
     "activation_reserved": {
-      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["external_reservation_id", "receiver_wallet", "amount", "valid_from", "expires_at"]}]
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["external_reservation_id", "receiver_wallet", "amount", "valid_from", "expires_at"], "properties": {"external_reservation_id": {"$ref": "#/$defs/external_id"}, "receiver_wallet": {"$ref": "#/$defs/wallet"}, "amount": {"$ref": "#/$defs/amount"}, "valid_from": {"type": "string", "format": "date-time"}, "expires_at": {"type": "string", "format": "date-time"}}}],
+      "unevaluatedProperties": false
     },
     "payment_confirmed": {
-      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["external_reservation_id", "transaction_id", "sender_wallet", "receiver_wallet", "amount", "observed_at"]}]
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["external_reservation_id", "transaction_id", "sender_wallet", "receiver_wallet", "amount", "observed_at"], "properties": {"external_reservation_id": {"$ref": "#/$defs/external_id"}, "transaction_id": {"$ref": "#/$defs/external_id"}, "sender_wallet": {"$ref": "#/$defs/wallet"}, "receiver_wallet": {"$ref": "#/$defs/wallet"}, "amount": {"$ref": "#/$defs/amount"}, "observed_at": {"type": "string", "format": "date-time"}}}],
+      "unevaluatedProperties": false
     },
     "sessions_activation_verify": {
-      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["session_id", "balance_id", "telegram_user_id", "telegram_chat_id", "sender_wallet", "transaction_id", "external_reservation_id"]}]
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {
+          "type": "object",
+          "required": ["session_id", "balance_id", "bot_id", "telegram_user_id", "telegram_chat_id", "sender_wallet", "receiver_wallet", "amount", "asset", "network", "transaction_id", "external_reservation_id", "offer_valid_from", "offer_expires_at"],
+          "properties": {
+            "session_id": {"$ref": "#/$defs/operation_id"},
+            "balance_id": {"type": "string", "minLength": 1, "maxLength": 256},
+            "bot_id": {"type": "integer", "minimum": 1},
+            "telegram_user_id": {"type": "integer", "minimum": 1},
+            "telegram_chat_id": {"type": "integer", "minimum": 1},
+            "sender_wallet": {"$ref": "#/$defs/wallet"},
+            "receiver_wallet": {"$ref": "#/$defs/wallet"},
+            "amount": {"$ref": "#/$defs/amount"},
+            "asset": {"const": "USDT"},
+            "network": {"$ref": "#/$defs/network"},
+            "transaction_id": {"$ref": "#/$defs/external_id"},
+            "external_reservation_id": {"$ref": "#/$defs/external_id"},
+            "offer_valid_from": {"type": "string", "format": "date-time"},
+            "offer_expires_at": {"type": "string", "format": "date-time"},
+            "display_label": {"type": "string", "minLength": 1, "maxLength": 128}
+          }
+        }
+      ],
+      "unevaluatedProperties": false
     },
     "topup_activation_verify": {
-      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["transaction_id", "external_reservation_id", "sender_wallet", "receiver_wallet", "amount", "network"]}]
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {
+          "type": "object",
+          "required": ["transaction_id", "external_reservation_id", "sender_wallet", "receiver_wallet", "amount", "asset", "network"],
+          "properties": {
+            "transaction_id": {"$ref": "#/$defs/external_id"},
+            "external_reservation_id": {"$ref": "#/$defs/external_id"},
+            "sender_wallet": {"$ref": "#/$defs/wallet"},
+            "receiver_wallet": {"$ref": "#/$defs/wallet"},
+            "amount": {"$ref": "#/$defs/amount"},
+            "asset": {"const": "USDT"},
+            "network": {"$ref": "#/$defs/network"}
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "topup_activation_verified": {
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {
+          "type": "object",
+          "required": ["transaction_id", "external_reservation_id", "sender_wallet", "receiver_wallet", "amount", "asset", "network", "finalized_at"],
+          "properties": {
+            "transaction_id": {"$ref": "#/$defs/external_id"},
+            "external_reservation_id": {"$ref": "#/$defs/external_id"},
+            "sender_wallet": {"$ref": "#/$defs/wallet"},
+            "receiver_wallet": {"$ref": "#/$defs/wallet"},
+            "amount": {"$ref": "#/$defs/amount"},
+            "asset": {"const": "USDT"},
+            "network": {"$ref": "#/$defs/network"},
+            "finalized_at": {"type": "string", "format": "date-time"}
+          }
+        }
+      ],
+      "unevaluatedProperties": false
     },
     "retryable_rejection": {
       "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["code", "retryable"], "properties": {"code": {"type": "string"}, "retryable": {"type": "boolean"}, "retry_after": {"type": "string", "format": "date-time"}}}]
     },
     "session_activated": {
-      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["session_id", "balance_id", "status", "authority_version", "activated_at"], "properties": {"status": {"const": "ACTIVE"}}}]
+      "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["session_id", "balance_id", "status", "authority_version", "activated_at"], "properties": {"session_id": {"$ref": "#/$defs/operation_id"}, "balance_id": {"type": "string", "minLength": 1, "maxLength": 256}, "status": {"const": "ACTIVE"}, "authority_version": {"type": "integer", "minimum": 1}, "activated_at": {"type": "string", "format": "date-time"}}}],
+      "unevaluatedProperties": false
     },
     "session_list": {
       "allOf": [{"$ref": "#/$defs/base"}, {"type": "object", "required": ["requester_session_id"], "properties": {"cursor": {"type": "string"}, "page_size": {"type": "integer", "minimum": 1, "maximum": 100}}}]

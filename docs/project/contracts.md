@@ -148,7 +148,7 @@ UUID сериализуется lowercase canonical form. Timestamp обязан
 
 | Сообщение | Обязательные поля payload |
 | --- | --- |
-| `sessions.activation.verify` | `operation_id`, `session_id`, `balance_id`, `telegram_user_id`, `telegram_chat_id`, `sender_wallet`, `transaction_id`, `external_reservation_id` |
+| `sessions.activation.verify` | `operation_id`, `session_id`, `balance_id`, `bot_id`, `telegram_user_id`, `telegram_chat_id`, expected `sender_wallet`, `receiver_wallet`, `amount`, `asset=USDT`, `network`, `transaction_id`, `external_reservation_id`, `offer_valid_from`, `offer_expires_at`; optional `display_label` |
 | `topup.activation.verify` | `operation_id`, `transaction_id`, `external_reservation_id`, expected `sender_wallet`, `receiver_wallet`, `amount`, `network` |
 | `topup.activation.verified` | `operation_id`, normalized transaction facts, `finalized_at` |
 | `topup.activation.verification_rejected` | `operation_id`, `code`, `retryable`, optional `retry_after` |
@@ -156,6 +156,8 @@ UUID сериализуется lowercase canonical form. Timestamp обязан
 | `sessions.activation.rejected` | `operation_id`, `code`, `retryable`, optional `retry_after` |
 
 Active-sessions обязан сравнить проверенные факты с заявленными и отдельно применить invariant первоначального sender wallet.
+
+Поля ожидаемых фактов платежа и `bot_id` обязательны с первой реализованной версией consumer. Изменение аддитивно для wire format, но producer со старым неполным payload получает `INVALID_ARGUMENT` и должен быть обновлён до интеграции. Обоснование и compatibility impact зафиксированы в [ADR-010](adr/010-activation-verification-facts.md).
 
 ### Список и отзыв сессий
 

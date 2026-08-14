@@ -18,10 +18,10 @@ type Poller struct {
 	timeout  time.Duration
 	botID    int64
 	username string
-	onReady  func()
+	onReady  func(User)
 }
 
-func NewPoller(client *Client, handler *app.MessageHandler, logger *slog.Logger, timeout time.Duration, botID int64, username string, onReady func()) *Poller {
+func NewPoller(client *Client, handler *app.MessageHandler, logger *slog.Logger, timeout time.Duration, botID int64, username string, onReady func(User)) *Poller {
 	return &Poller{client: client, handler: handler, logger: logger, timeout: timeout, botID: botID, username: strings.TrimPrefix(username, "@"), onReady: onReady}
 }
 
@@ -46,7 +46,7 @@ func (p *Poller) Run(ctx context.Context) error {
 	}
 	p.logger.Info("Telegram polling started", "bot_id", identity.ID, "bot_username", identity.Username)
 	if p.onReady != nil {
-		p.onReady()
+		p.onReady(identity)
 	}
 
 	var offset int64
@@ -70,7 +70,12 @@ func (p *Poller) Run(ctx context.Context) error {
 				continue
 			}
 			if update.Message != nil {
-				result, processErr := p.handler.Process(ctx, app.IncomingMessage{UpdateID: update.UpdateID, ChatID: update.Message.Chat.ID, ChatType: update.Message.Chat.Type, Text: update.Message.Text, PayloadDigest: update.PayloadDigest})
+				userID := update.Message.From.ID
+				if userID == 0 && update.Message.Chat.Type == "private" {
+					userID = update.Message.Chat.ID
+				}
+				displayLabel := strings.TrimSpace(update.Message.From.FirstName + " " + update.Message.From.LastName)
+				result, processErr := p.handler.Process(ctx, app.IncomingMessage{UpdateID: update.UpdateID, BotID: identity.ID, UserID: userID, ChatID: update.Message.Chat.ID, ChatType: update.Message.Chat.Type, Text: update.Message.Text, DisplayLabel: displayLabel, PayloadDigest: update.PayloadDigest})
 				if processErr != nil {
 					return processErr
 				}

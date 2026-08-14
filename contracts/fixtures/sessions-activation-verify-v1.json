@@ -1,0 +1,18 @@
+{
+  "operation_id": "0198a123-4567-7abc-8def-0123456789ab",
+  "session_id": "0198a123-4567-7abc-8def-1123456789ab",
+  "balance_id": "balance-fixture-001",
+  "bot_id": 100001,
+  "telegram_user_id": 700001,
+  "telegram_chat_id": 700001,
+  "sender_wallet": "0x1111111111111111111111111111111111111111",
+  "receiver_wallet": "0x9999999999999999999999999999999999999999",
+  "amount": "0.001001",
+  "asset": "USDT",
+  "network": "fixture-net",
+  "transaction_id": "fixture-transaction-001",
+  "external_reservation_id": "fixture-reservation-001",
+  "offer_valid_from": "2029-12-31T23:59:00Z",
+  "offer_expires_at": "2030-01-01T00:30:00Z",
+  "display_label": "Fixture Telegram"
+}

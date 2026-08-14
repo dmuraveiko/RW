@@ -20,10 +20,13 @@ import (
 	"github.com/dmuraveiko/RW/internal/bot/presentation"
 	"github.com/dmuraveiko/RW/internal/platform/config"
 	platformcrypto "github.com/dmuraveiko/RW/internal/platform/crypto"
+	"github.com/dmuraveiko/RW/internal/platform/message"
 	"github.com/dmuraveiko/RW/internal/platform/messaging"
 	"github.com/dmuraveiko/RW/internal/platform/migrate"
 	"github.com/dmuraveiko/RW/internal/platform/observability"
 	"github.com/dmuraveiko/RW/internal/platform/postgres"
+	sessionspostgres "github.com/dmuraveiko/RW/internal/sessions/adapter/postgres"
+	sessionsapp "github.com/dmuraveiko/RW/internal/sessions/app"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -47,7 +50,8 @@ func Run(parent context.Context, service Service) error {
 	logger := observability.NewLogger(string(service), string(cfg.Environment), cfg.InstanceID, cfg.LogLevel)
 	metrics := observability.NewMetrics()
 
-	if err = validateSecurity(cfg, time.Now().UTC()); err != nil {
+	security, err := loadSecurityMaterial(cfg, time.Now().UTC())
+	if err != nil {
 		return fmt.Errorf("load security material: %w", err)
 	}
 	pool, err := postgres.Open(parent, cfg.Database, logger)
@@ -65,15 +69,36 @@ func Run(parent context.Context, service Service) error {
 	defer connection.Close()
 
 	app := &application{cfg: cfg, logger: logger, metrics: metrics, pool: pool, nats: connection}
-	if service == Bot && cfg.Bot.TelegramMode == "direct_polling" {
-		client, clientErr := telegram.NewClient(cfg.Bot.TelegramToken, cfg.Bot.PollTimeout+15*time.Second)
-		if clientErr != nil {
-			return clientErr
+	if service == Bot {
+		store := botpostgres.NewFlowStore(pool, security.dataKeyring, security.fingerprintKey)
+		codec := message.Codec{Producer: string(service), KeyID: cfg.Security.SigningKeyID, PrivateKey: security.privateKey, Trusted: security.trustedKeys, ClockSkew: config.ClockSkew}
+		var client *telegram.Client
+		var botMessenger botapp.Messenger
+		if cfg.Bot.TelegramMode == "direct_polling" {
+			client, err = telegram.NewClient(cfg.Bot.TelegramToken, cfg.Bot.PollTimeout+15*time.Second)
+			if err != nil {
+				return err
+			}
+			botMessenger = client
 		}
-		updates := botpostgres.NewUpdateStore(pool, "direct_polling")
-		handler := botapp.NewMessageHandler(client, updates, presentation.Russian{})
-		poller := telegram.NewPoller(client, handler, logger, cfg.Bot.PollTimeout, cfg.Bot.TelegramBotID, cfg.Bot.TelegramBotUsername, func() { app.telegramReady.Store(true) })
-		app.worker = poller.Run
+		activation := botapp.NewActivationService(store, codec, cfg, logger, connection, botMessenger, func() { app.domainReady.Store(true) })
+		workers := []func(context.Context) error{activation.Run}
+		if client != nil {
+			updates := botpostgres.NewUpdateStore(pool, "direct_polling")
+			handler := botapp.NewFlowMessageHandler(client, updates, presentation.Russian{}, activation)
+			poller := telegram.NewPoller(client, handler, logger, cfg.Bot.PollTimeout, cfg.Bot.TelegramBotID, cfg.Bot.TelegramBotUsername, func(identity telegram.User) {
+				activation.SetTelegramIdentity(identity.ID, identity.Username)
+				app.telegramReady.Store(true)
+			})
+			workers = append(workers, poller.Run)
+		}
+		app.worker = runWorkers(workers...)
+	}
+	if service == ActiveSessions {
+		store := sessionspostgres.NewStore(pool, security.dataKeyring, security.fingerprintKey)
+		codec := message.Codec{Producer: string(service), KeyID: cfg.Security.SigningKeyID, PrivateKey: security.privateKey, Trusted: security.trustedKeys, ClockSkew: config.ClockSkew}
+		sessions := sessionsapp.NewService(store, codec, cfg, logger, connection, func() { app.domainReady.Store(true) })
+		app.worker = sessions.Run
 	}
 	return app.serve(parent)
 }
@@ -86,6 +111,7 @@ type application struct {
 	nats          *nats.Conn
 	worker        func(context.Context) error
 	telegramReady atomic.Bool
+	domainReady   atomic.Bool
 }
 
 func (a *application) serve(parent context.Context) error {
@@ -187,32 +213,73 @@ func (a *application) checkReady(ctx context.Context) error {
 	if a.cfg.Service == Bot && a.cfg.Bot.TelegramMode == "direct_polling" && !a.telegramReady.Load() {
 		return errors.New("telegram polling unavailable")
 	}
+	if a.cfg.Service == Bot && !a.domainReady.Load() {
+		return errors.New("bot consumers unavailable")
+	}
+	if a.cfg.Service == ActiveSessions && !a.domainReady.Load() {
+		return errors.New("active-sessions consumers unavailable")
+	}
 	return nil
 }
 
-func validateSecurity(cfg config.Config, now time.Time) error {
+func runWorkers(workers ...func(context.Context) error) func(context.Context) error {
+	return func(ctx context.Context) error {
+		workerCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		results := make(chan error, len(workers))
+		for _, worker := range workers {
+			worker := worker
+			go func() { results <- worker(workerCtx) }()
+		}
+		select {
+		case <-ctx.Done():
+			cancel()
+			for range workers {
+				<-results
+			}
+			return nil
+		case err := <-results:
+			cancel()
+			return err
+		}
+	}
+}
+
+type securityMaterial struct {
+	privateKey     ed25519.PrivateKey
+	trustedKeys    platformcrypto.TrustedKeys
+	dataKeyring    platformcrypto.DataKeyring
+	fingerprintKey []byte
+}
+
+func loadSecurityMaterial(cfg config.Config, now time.Time) (securityMaterial, error) {
+	var material securityMaterial
 	privateKey, err := platformcrypto.LoadSigningPrivateKey(cfg.Security.SigningPrivateKeyFile, cfg.Security.SigningPrivateKey)
 	if err != nil {
-		return err
+		return material, err
 	}
 	trusted, err := platformcrypto.LoadTrustedKeys(cfg.Security.TrustedKeysFile)
 	if err != nil {
-		return err
+		return material, err
 	}
 	publicKey, err := trusted.Lookup(string(cfg.Service), cfg.Security.SigningKeyID, now)
 	if err != nil {
-		return fmt.Errorf("current signing key is not trusted: %w", err)
+		return material, fmt.Errorf("current signing key is not trusted: %w", err)
 	}
 	if !bytes.Equal(publicKey, privateKey.Public().(ed25519.PublicKey)) {
-		return errors.New("signing private key does not match trusted public key")
+		return material, errors.New("signing private key does not match trusted public key")
 	}
 	if (cfg.Environment == config.Staging || cfg.Environment == config.Prod) && strings.Contains(strings.ToLower(cfg.Security.SigningKeyID), "test") {
-		return errors.New("test signing key is forbidden in staging/prod")
+		return material, errors.New("test signing key is forbidden in staging/prod")
 	}
-	_, err = platformcrypto.LoadDataKeyring(cfg.Security.DataKeyringFile)
+	dataKeyring, err := platformcrypto.LoadDataKeyring(cfg.Security.DataKeyringFile)
 	if err != nil {
-		return err
+		return material, err
 	}
-	_, err = platformcrypto.LoadFingerprintKey(cfg.Security.FingerprintKeyFile)
-	return err
+	fingerprintKey, err := platformcrypto.LoadFingerprintKey(cfg.Security.FingerprintKeyFile)
+	if err != nil {
+		return material, err
+	}
+	material = securityMaterial{privateKey: privateKey, trustedKeys: trusted, dataKeyring: dataKeyring, fingerprintKey: fingerprintKey}
+	return material, nil
 }

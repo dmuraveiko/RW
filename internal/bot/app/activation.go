@@ -210,7 +210,7 @@ func (s *ActivationService) handleInviteCreate(ctx context.Context, subject stri
 	return s.store.CreateInvite(ctx, incoming(verified, subject), command, ttl, func(token string, expiresAt time.Time) (message.OutboxMessage, error) {
 		_, username := s.identity()
 		if username == "" {
-			return message.OutboxMessage{}, errors.New("Telegram bot username is not available")
+			return message.OutboxMessage{}, errors.New("telegram bot username is not available")
 		}
 		payload := contract.InviteCreated{OperationID: command.OperationID, Invite: token, BotDeepLink: "https://t.me/" + username + "?start=" + token, ExpiresAt: expiresAt.Format(time.RFC3339Nano)}
 		return s.codec.Sign(contract.InviteCreatedSubject, contract.InviteCreatedType, operationID, verified.ID, payload, time.Now().UTC().Add(5*time.Minute))
